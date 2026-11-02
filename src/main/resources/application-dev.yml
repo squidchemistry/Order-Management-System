@@ -1,0 +1,18 @@
+# Zero-setup local profile: in-memory H2 in PostgreSQL compatibility mode, same Flyway migrations as prod.
+spring:
+  datasource:
+    url: jdbc:h2:mem:orders;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  h2:
+    console:
+      enabled: true        # http://localhost:8080/h2-console (JDBC URL above, user sa, no password)
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  seed:
+    enabled: ${SEED_DEMO_DATA:true}

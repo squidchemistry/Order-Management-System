@@ -1,0 +1,22 @@
+# Postgres profile. Every value comes from the environment; see .env.example for the full list.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:orders}}
+    username: ${DB_USER:orders}
+    password: ${DB_PASSWORD:}
+    hikari:
+      pool-name: orders-pool
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:5000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT_MS:300000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME_MS:1200000}
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_MS:0}
+  jpa:
+    properties:
+      hibernate:
+        jdbc.batch_size: 50
+        order_inserts: true
+  flyway:
+    # Flyway runs once at startup before the app takes traffic; the readiness probe stays DOWN until then.
+    validate-on-migrate: true
