@@ -1,0 +1,41 @@
+# One-command local stack: the API (prod profile, Flyway) + PostgreSQL 16.
+#   docker compose up --build
+# API: http://localhost:8080  (redirects to Swagger UI)
+# Values can be overridden in a local .env file; see .env.example.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-orders}
+      POSTGRES_USER: ${DB_USER:-orders}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-orders-local-only}
+    ports:
+      - "${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-orders}
+      DB_USER: ${DB_USER:-orders}
+      DB_PASSWORD: ${DB_PASSWORD:-orders-local-only}
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-10}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      HEALTH_SHOW_DETAILS: always
+    ports:
+      - "${API_HOST_PORT:-8080}:8080"
+
+volumes:
+  pgdata:
