@@ -47,3 +47,20 @@ scripts/smoke.sh            # 20 passed, 0 failed
 ### Design note: stale version is 412, a lost race is 409
 
 A client that sends `If-Match` with an old version gets **412 Precondition Failed** (`stale-version`), which is the HTTP status for a failed precondition. Two writes racing on the same version, with no `If-Match`, are caught by the JPA `@Version` check and get **409 Conflict** (`concurrent-modification`).
+
+## checkpoint-3: CI, deploy config and docs (2026-11-05)
+
+| Deliverable | File | Verified how |
+|---|---|---|
+| GitHub Actions CI: `./mvnw verify` on JDK 21 (Testcontainers ITs included), `docker build`, gitleaks over the full history | `.github/workflows/ci.yml` | `actionlint` 1.7.7: 0 errors. The gitleaks release URL resolves (HTTP 200). It hasn't run on GitHub yet, because the repo isn't pushed |
+| Secret scan | (CI job above) | gitleaks 8.21.2 run locally in Docker, over the git history and over the working tree: "no leaks found" |
+| Render Blueprint: Docker web service + managed Postgres 16, DB credentials from the database, health check `/actuator/health/readiness` | `render.yaml` | Parses as YAML; field names follow Render's Blueprint spec. Not deployed (needs the user's Render account) |
+| Request collection: the whole lifecycle plus 400 / 404 / 409 / 412 / 422 and the idempotent replay | `requests.http` | The same flow runs as `scripts/smoke.sh`: 20/20 against `docker compose` (checkpoint-2 above) |
+| Demo script (3 to 5 min) + 10 interview Q&As | `DEMO.md` | Each claim checked against the code and the tests |
+| README: mermaid architecture and state diagrams, endpoint table, run with and without Docker, tests, deploy, configuration | `README.md` | Both mermaid diagrams render with mermaid 10.9.1 (no parse errors) |
+| License | `LICENSE` (MIT) | |
+
+### Left for the user
+
+1. Create the GitHub repo `squidchemistry/order-management-service` (empty, with no README or license), push `main` and the tags, then check that the CI run is green.
+2. In Render, go to **New → Blueprint**, pick the repo and apply. Then run `scripts/smoke.sh https://<service>.onrender.com`.
