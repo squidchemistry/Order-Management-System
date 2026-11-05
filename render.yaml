@@ -1,13 +1,12 @@
-# Render Blueprint: the API as a Docker web service plus a managed PostgreSQL database.
-# Render dashboard -> New -> Blueprint -> pick this repo. No secrets live in this file:
-# the database credentials are injected from the managed database at deploy time.
-databases:
-  - name: orders-db
-    databaseName: orders
-    user: orders
-    plan: free
-    postgresMajorVersion: "16"
-
+# Render Blueprint: the API as a Docker web service.
+#
+# Render allows one free PostgreSQL database per account, so this Blueprint does not create one.
+# The service connects to a Postgres you already have (another Render database, or any hosted
+# Postgres) and keeps its tables in their own schema (DB_SCHEMA=orders), so it never touches the
+# other app's tables. Flyway creates the schema on first start.
+#
+# When you apply the Blueprint, Render asks for the values marked `sync: false`. Copy them from
+# your database's Connections panel. No secret is stored in this file.
 services:
   - type: web
     name: order-management-service
@@ -22,29 +21,23 @@ services:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
       # Render sets PORT itself; server.port reads it.
+      # Hostname: use the database's *internal* hostname if it is in the same Render region as this
+      # service (Oregon unless you change it), otherwise its *external* hostname.
       - key: DB_HOST
-        fromDatabase:
-          name: orders-db
-          property: host
+        sync: false
       - key: DB_PORT
-        fromDatabase:
-          name: orders-db
-          property: port
+        value: "5432"
       - key: DB_NAME
-        fromDatabase:
-          name: orders-db
-          property: database
+        sync: false
       - key: DB_USER
-        fromDatabase:
-          name: orders-db
-          property: user
+        sync: false
       - key: DB_PASSWORD
-        fromDatabase:
-          name: orders-db
-          property: password
-      # The free database allows few connections; keep the pool small.
+        sync: false
+      - key: DB_SCHEMA
+        value: orders
+      # Free databases allow few connections, and this one may be shared: keep the pool small.
       - key: DB_POOL_MAX_SIZE
-        value: "5"
+        value: "3"
       - key: DB_POOL_MIN_IDLE
         value: "1"
       # Gives the public demo URL something to show on first start (skipped if the table has rows).
@@ -55,3 +48,14 @@ services:
       - key: HEALTH_SHOW_DETAILS
         value: never
       # Free instances have 512 MB; MaxRAMPercentage in the Dockerfile sizes the heap from that.
+
+# To have the Blueprint create a dedicated database instead (a new account, or a paid plan),
+# add the block below, and replace the five DB_* `sync: false` entries above with
+# `fromDatabase: {name: orders-db, property: host | port | database | user | password}`:
+#
+# databases:
+#   - name: orders-db
+#     databaseName: orders
+#     user: orders
+#     plan: free
+#     postgresMajorVersion: "16"

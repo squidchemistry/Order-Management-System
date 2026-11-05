@@ -139,11 +139,13 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `./mvnw verify`
 
 ## Deploy (Render)
 
-[`render.yaml`](render.yaml) is a Render Blueprint: a Docker web service plus a managed PostgreSQL 16 database. The database credentials are injected as environment variables from the database, so no secret is stored in the repo. The health check path is `/actuator/health/readiness`, so traffic only arrives after Flyway has migrated and the database is reachable.
+[`render.yaml`](render.yaml) is a Render Blueprint for the Docker web service. Render allows only one free PostgreSQL database per account, so the Blueprint doesn't create one. The service connects to a Postgres you already have and keeps its tables in their own schema (`DB_SCHEMA=orders`), so it can safely share a database with another app. Flyway creates the schema on first start. The health check path is `/actuator/health/readiness`, so traffic only arrives after Flyway has migrated and the database is reachable. No secret is stored in the repo.
 
 1. Push this repo to GitHub.
-2. In Render: **New → Blueprint**, choose the repo, and apply. Render creates `orders-db` and `order-management-service`.
+2. In Render: **New → Blueprint**, choose the repo, and apply. Render asks for `DB_HOST`, `DB_NAME`, `DB_USER` and `DB_PASSWORD`; copy them from your database's **Connections** panel. Use the *internal* hostname if the database is in the same region as the service (Oregon by default), otherwise the *external* one.
 3. When the deploy is live, open `https://<service>.onrender.com` (it redirects to Swagger UI) or run `scripts/smoke.sh https://<service>.onrender.com`.
+
+To give the service a database of its own instead (a new account, or a paid plan), follow the commented `databases:` block at the end of `render.yaml`.
 
 Free instances sleep when idle, so the first request after a pause takes a while to wake the service.
 
@@ -157,6 +159,7 @@ Every setting is an environment variable; [`.env.example`](.env.example) lists t
 | `PORT` | `8080` | HTTP port (Render sets it) |
 | `DB_URL` or `DB_HOST` / `DB_PORT` / `DB_NAME` | `localhost:5432/orders` | PostgreSQL location (`prod`) |
 | `DB_USER` / `DB_PASSWORD` | `orders` / empty | PostgreSQL credentials (`prod`) |
+| `DB_SCHEMA` | `public` | Schema for the tables and Flyway history (`prod`); created if missing |
 | `DB_POOL_MAX_SIZE` | `10` | HikariCP pool size |
 | `SEED_DEMO_DATA` | `true` in `dev`, `false` in `prod` | Insert 5 demo orders if the table is empty |
 | `HEALTH_SHOW_DETAILS` | `never` | Show component details on `/actuator/health` |

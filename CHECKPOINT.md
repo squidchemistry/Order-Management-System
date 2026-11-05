@@ -64,3 +64,9 @@ A client that sends `If-Match` with an old version gets **412 Precondition Faile
 
 1. ~~Create the GitHub repo and push~~ Done 2026-11-05: `main` and the tags are pushed to https://github.com/squidchemistry/Order-Management-System. Check that the first CI run is green.
 2. In Render, go to **New → Blueprint**, pick the repo and apply. Then run `scripts/smoke.sh https://<service>.onrender.com`.
+
+### Change after checkpoint-3: Render free-database limit (2026-11-05)
+
+The first Blueprint sync failed with "cannot have more than one active free tier database", because the account already has a free Postgres. `render.yaml` no longer creates a database. Instead the service asks for `DB_HOST`, `DB_NAME`, `DB_USER` and `DB_PASSWORD` (`sync: false`) and keeps its tables in schema `orders` (new `DB_SCHEMA` setting; Flyway and Hibernate both use it).
+
+Verified locally: with `DB_SCHEMA=orders` against a database that already had `public.orders`, `public.order_lines` and `public.flyway_schema_history`, Flyway logged `Creating schema "orders"` and migrated it; the new tables went to `orders.*`; and `scripts/smoke.sh` passed 20/20.
