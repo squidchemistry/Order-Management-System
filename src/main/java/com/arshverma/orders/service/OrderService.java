@@ -38,7 +38,7 @@ public class OrderService {
         this.writeTx = new TransactionTemplate(txManager);
         this.readTx = new TransactionTemplate(txManager);
         this.readTx.setReadOnly(true);
-        this.createdCounter = meters.counter("orders.created");
+        this.createdCounter = meters.counter("orders.placed");
         this.replayCounter = meters.counter("orders.idempotent.replays");
         this.confirmedCounter = meters.counter("orders.confirmed");
         this.cancelledCounter = meters.counter("orders.cancelled");

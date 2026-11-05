@@ -6,6 +6,7 @@ import com.arshverma.orders.support.OrderApiScenarios;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
@@ -16,8 +17,12 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Full app on a random port with the dev profile (H2, Flyway, demo seed data). */
+/**
+ * Full app on a random port with the dev profile (H2, Flyway, demo seed data). Metrics export is off in
+ * Spring Boot tests by default; {@code @AutoConfigureObservability} turns it back on so /actuator/prometheus exists.
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureObservability
 @Import(BarrierClock.Config.class)
 class OrderApiH2Test {
 
@@ -64,7 +69,7 @@ class OrderApiH2Test {
         assertThat(scenarios.get("/actuator/health/liveness").getBody()).containsEntry("status", "UP");
         assertThat(scenarios.get("/actuator/health/readiness").getBody()).containsEntry("status", "UP");
         assertThat(http.getForEntity("/actuator/prometheus", String.class).getBody())
-                .contains("orders_created_total");
+                .contains("orders_placed_total");
         assertThat(http.getForEntity("/v3/api-docs", String.class).getBody())
                 .contains("\"/api/orders/{id}/confirm\"");
         assertThat(http.getForEntity("/swagger-ui/index.html", String.class).getStatusCode())
