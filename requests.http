@@ -1,0 +1,131 @@
+# Order Management Service: the whole lifecycle plus every error case.
+# Works with the VS Code "REST Client" extension (humao.rest-client): click "Send Request" above each block,
+# top to bottom. Later requests reuse ids from earlier responses via {{name.response.body.$.field}}.
+# The same flow runs non-interactively with scripts/smoke.sh.
+#
+# Local:  ./mvnw spring-boot:run (H2)   or   docker compose up --build (Postgres)
+# Render: change @baseUrl to your https://<service>.onrender.com URL
+
+@baseUrl = http://localhost:8080
+@json = application/json
+
+### 0. Health: liveness, readiness (includes the DB) and the aggregate
+GET {{baseUrl}}/actuator/health/liveness
+
+###
+GET {{baseUrl}}/actuator/health/readiness
+
+###
+GET {{baseUrl}}/actuator/health
+
+### 1. Create an order -> 201, Location + ETag "0", Idempotent-Replayed: false.
+###    The total (2 x 3499.00 + 1 x 799.50 = 7797.50) is computed by the server.
+# @name create
+POST {{baseUrl}}/api/orders
+Content-Type: {{json}}
+Idempotency-Key: demo-order-0001
+
+{
+  "customerId": "cust-demo",
+  "currency": "INR",
+  "items": [
+    { "sku": "SKU-KB-01", "productName": "Mechanical keyboard", "quantity": 2, "unitPrice": 3499.00 },
+    { "sku": "SKU-MS-02", "productName": "Wireless mouse", "quantity": 1, "unitPrice": 799.50 }
+  ]
+}
+
+### 2. Idempotent replay: same key, same body -> 200, same order id, Idempotent-Replayed: true, no new row.
+POST {{baseUrl}}/api/orders
+Content-Type: {{json}}
+Idempotency-Key: demo-order-0001
+
+{
+  "customerId": "cust-demo",
+  "currency": "INR",
+  "items": [
+    { "sku": "SKU-KB-01", "productName": "Mechanical keyboard", "quantity": 2, "unitPrice": 3499.00 },
+    { "sku": "SKU-MS-02", "productName": "Wireless mouse", "quantity": 1, "unitPrice": 799.50 }
+  ]
+}
+
+### 3. Same key, different body -> 422 problem+json "idempotency-key-reused"
+POST {{baseUrl}}/api/orders
+Content-Type: {{json}}
+Idempotency-Key: demo-order-0001
+
+{
+  "customerId": "cust-someone-else",
+  "currency": "INR",
+  "items": [ { "sku": "SKU-X", "productName": "Other", "quantity": 1, "unitPrice": 1.00 } ]
+}
+
+### 4. Get by id -> 200, ETag "0"
+GET {{baseUrl}}/api/orders/{{create.response.body.$.id}}
+
+### 5. List: paginated, newest first, filterable by status and customerId
+GET {{baseUrl}}/api/orders?customerId=cust-demo&status=PENDING&page=0&size=10&sort=createdAt,desc
+
+###
+GET {{baseUrl}}/api/orders?size=2
+
+### 6. Confirm with If-Match "0" -> 200, status CONFIRMED, version 1, ETag "1"
+# @name confirm
+POST {{baseUrl}}/api/orders/{{create.response.body.$.id}}/confirm
+If-Match: "0"
+
+### 7. Stale version: If-Match "0" again, but the order is now at version 1
+###    -> 412 Precondition Failed, problem+json "stale-version" with expectedVersion / currentVersion.
+###    (Two confirms racing without If-Match are caught by the JPA @Version check instead: 409
+###    "concurrent-modification". That race is reproduced deterministically in the test suite.)
+POST {{baseUrl}}/api/orders/{{create.response.body.$.id}}/cancel
+If-Match: "0"
+Content-Type: {{json}}
+
+{ "reason": "Customer changed their mind" }
+
+### 8. Illegal transition: confirm a CONFIRMED order -> 409 problem+json "invalid-state-transition"
+POST {{baseUrl}}/api/orders/{{create.response.body.$.id}}/confirm
+
+### 9. Cancel with the current version -> 200, status CANCELLED, version 2
+POST {{baseUrl}}/api/orders/{{create.response.body.$.id}}/cancel
+If-Match: "1"
+Content-Type: {{json}}
+
+{ "reason": "Customer changed their mind" }
+
+### 10. Illegal transition: cancel a CANCELLED order -> 409
+POST {{baseUrl}}/api/orders/{{create.response.body.$.id}}/cancel
+
+### 11. Invalid input -> 400 problem+json "validation-failed" with one entry per bad field
+POST {{baseUrl}}/api/orders
+Content-Type: {{json}}
+
+{
+  "customerId": "",
+  "currency": "rupees",
+  "items": [ { "sku": "SKU-1", "productName": "Keyboard", "quantity": 0, "unitPrice": -5 } ]
+}
+
+### 12. Empty items -> 400
+POST {{baseUrl}}/api/orders
+Content-Type: {{json}}
+
+{ "customerId": "cust-demo", "currency": "INR", "items": [] }
+
+### 13. Malformed JSON -> 400
+POST {{baseUrl}}/api/orders
+Content-Type: {{json}}
+
+{ "customerId": "cust-demo",
+
+### 14. Unknown order -> 404 problem+json "order-not-found"
+GET {{baseUrl}}/api/orders/999999999
+
+### 15. Bad filter value / unsupported sort -> 400
+GET {{baseUrl}}/api/orders?status=SHIPPED
+
+###
+GET {{baseUrl}}/api/orders?sort=idempotencyKey
+
+### 16. OpenAPI document (Swagger UI is at {{baseUrl}}/swagger-ui/index.html)
+GET {{baseUrl}}/v3/api-docs
