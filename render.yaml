@@ -1,0 +1,57 @@
+# Render Blueprint: the API as a Docker web service plus a managed PostgreSQL database.
+# Render dashboard -> New -> Blueprint -> pick this repo. No secrets live in this file:
+# the database credentials are injected from the managed database at deploy time.
+databases:
+  - name: orders-db
+    databaseName: orders
+    user: orders
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: order-management-service
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    autoDeploy: true
+    # Readiness includes the DB check, so Render only routes traffic once Flyway has run
+    # and the connection pool can reach Postgres.
+    healthCheckPath: /actuator/health/readiness
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      # Render sets PORT itself; server.port reads it.
+      - key: DB_HOST
+        fromDatabase:
+          name: orders-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: orders-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: orders-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: orders-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: orders-db
+          property: password
+      # The free database allows few connections; keep the pool small.
+      - key: DB_POOL_MAX_SIZE
+        value: "5"
+      - key: DB_POOL_MIN_IDLE
+        value: "1"
+      # Gives the public demo URL something to show on first start (skipped if the table has rows).
+      - key: SEED_DEMO_DATA
+        value: "true"
+      - key: MANAGEMENT_ENDPOINTS
+        value: health,info,prometheus,metrics
+      - key: HEALTH_SHOW_DETAILS
+        value: never
+      # Free instances have 512 MB; MaxRAMPercentage in the Dockerfile sizes the heap from that.
