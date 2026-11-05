@@ -62,5 +62,5 @@ A client that sends `If-Match` with an old version gets **412 Precondition Faile
 
 ### Left for the user
 
-1. Create the GitHub repo `squidchemistry/order-management-service` (empty, with no README or license), push `main` and the tags, then check that the CI run is green.
+1. ~~Create the GitHub repo and push~~ Done 2026-11-05: `main` and the tags are pushed to https://github.com/squidchemistry/Order-Management-System. Check that the first CI run is green.
 2. In Render, go to **New → Blueprint**, pick the repo and apply. Then run `scripts/smoke.sh https://<service>.onrender.com`.
