@@ -17,6 +17,11 @@ spring:
       hibernate:
         jdbc.batch_size: 50
         order_inserts: true
+        # Tables live in DB_SCHEMA, so the service can share a Postgres database with another app.
+        default_schema: ${DB_SCHEMA:public}
   flyway:
     # Flyway runs once at startup before the app takes traffic; the readiness probe stays DOWN until then.
     validate-on-migrate: true
+    # Creates DB_SCHEMA if it is missing, and keeps flyway_schema_history inside it.
+    schemas: ${DB_SCHEMA:public}
+    default-schema: ${DB_SCHEMA:public}

@@ -31,6 +31,7 @@ services:
       DB_NAME: ${DB_NAME:-orders}
       DB_USER: ${DB_USER:-orders}
       DB_PASSWORD: ${DB_PASSWORD:-orders-local-only}
+      DB_SCHEMA: ${DB_SCHEMA:-public}
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-10}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
       HEALTH_SHOW_DETAILS: always
